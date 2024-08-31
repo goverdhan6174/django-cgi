@@ -17,3 +17,8 @@ django_app/cgi-bin/
 
 # Virtual environment
 venv/
+
+__data/
+OLD/
+STATUS/
+TEST_DATA/

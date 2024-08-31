@@ -2,7 +2,7 @@
 FROM nginx:latest
 
 # Install necessary packages including fcgiwrap and spawn-fcgi
-RUN apt-get update && apt-get install -y fcgiwrap spawn-fcgi python3 perl libfcgi-perl
+RUN apt-get update && apt-get install -y fcgiwrap spawn-fcgi python3 perl libfcgi-perl libnet-dns-perl
 
 # Copy the Nginx configuration file
 COPY nginx.conf /etc/nginx/nginx.conf
