@@ -1,5 +1,4 @@
 #########################################################################
-
 ## 2024/4/21 Set strict "vars" mode for check global
 use strict "vars";
 
@@ -650,7 +649,7 @@ sub verifyMail()
   $year += 1900;
   $mon += 1;
   $curdate = sprintf("%04d%02d%02d", $year, $mon, $mday );
-  $curdatestart = sprintf("%04d%02d%02d-$02d%02d", $year, $mon, $mday,$hour,$min );
+  # $curdatestart = sprintf("%04d%02d%02d-$02d%02d", $year, $mon, $mday,$hour,$min );
 
   if($_skip ne 1){
 #    open(FP, ">>".$_files{$results}."$_pnum.txt");

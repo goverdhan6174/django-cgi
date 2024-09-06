@@ -10,6 +10,11 @@ services:
       - ./django_app:/app
     environment:
       - DJANGO_SETTINGS_MODULE=nc_app.settings
+      - MYSQL_HOST=db
+      - MYSQL_PORT=3306
+      - MYSQL_USER=user
+      - MYSQL_PASSWORD=password
+      - MYSQL_DATABASE=dbname
     # depends_on:
     #   - db
 
@@ -24,9 +29,17 @@ services:
     depends_on:
       - django_app
 
-  # db:
-  #   image: postgres:13
-  #   environment:
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #     POSTGRES_DB: dbname
+  db:
+    image: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+      MYSQL_DATABASE: dbname
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+
+volumes:
+  db_data:

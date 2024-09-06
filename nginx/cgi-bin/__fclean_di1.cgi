@@ -18,11 +18,17 @@ use threads::shared;
 use Thread::Semaphore;
 use Time::HiRes qw(usleep);
 
-my $ipv = "di1";
 
+### 送信種別の設定
+my $ipv = "d1";
+
+### 設定ファイル読み込み（キャリア別設定値）
 require("./config/serverlist_4096.pl");
+### 設定ファイル読み込み（送信メールサーバのIPリスト）
 require("./config/iplist_$ipv.pl");
+### 未使用
 #require("./config/db.cgi");
+### 処理ファイル読み込み
 require("./config/_initial.pl");
 
 if($_LOCAL){
@@ -46,6 +52,7 @@ $filename = "emaildata_$ipv.txt";
 $pausefile = "pause$ipv.txt";
 $_tcounts = 0;
 
+
 srand time;
 
 $procid = $ARGV[1];
@@ -68,6 +75,13 @@ if($ARGV[0] ne ""){
     $filename = $_tmpfilename;
   }
 }
+
+
+######
+$start_time = time();
+print("$start_time\n");
+######
+
 
 print("Processing file : $filename for $procid\n");
 
@@ -159,7 +173,6 @@ print("Operation Mode : $_OPFLAG $__opflag[$_OPFLAG] for $_TDOMAIN\n");
 ##
 ## Retrieve MX if Operation FLAG is "Specified Domain"
 ##
-
 if($_OPFLAG eq 0){
   &_getMX($_TDOMAIN);
   $WORKERS = $_smtpserver{$_TDOMAIN}{max};
@@ -178,7 +191,7 @@ if($_OPFLAG eq 0){
 }
 
 if($THREAD1 eq ""){
-  $THREADS = 10;
+  $THREADS = 1;
 }
 
 print("Number of WORKERS $WORKERS\n");
@@ -208,16 +221,13 @@ for(my $cloop=0; $cloop<$WORKERS; $cloop++){
   ## Access SMTP Server Selection
   $curserver++;
   print("[$curserver] MAX SMTP SERVER $_smtpserver{$_TDOMAIN}{max} \n");
+
   if($curserver > $_smtpserver{$_TDOMAIN}{max}){
     $curserver=1;
   }
 
   ##
   ## Fork Process
-  ##----------------------------------------
-  ## Added 2024/4/19
-  $SIG{PIPE} = \&_sigpipe;
-  ##----------------------------------------
   my $pid = fork();
   if($pid){
     push(@pids, $pid);
@@ -238,108 +248,108 @@ for(my $cloop=0; $cloop<$WORKERS; $cloop++){
       my $status = 0;
       while($status eq 0){
         my @thr;
-	my $thloop, $thjloop;
-	print("[$cloop] Status($status) Beginning THREAD \n");
+        my $thloop, $thjloop;
+        print("[$cloop] Status($status) Beginning THREAD \n");
+        ## Thread 
+        for(my $thloop=0; $thloop<$THREADS; $thloop++){
+          if($curpos[$thloop] ne ""){
+            print("[$cloop][$thloop] StoreVal_Begin($status) : $curpos[$thloop] \n");
+          }
+        }
 
-	## Thread 
-	for(my $thloop=0; $thloop<$THREADS; $thloop++){
-          if($curpos[$thloop] ne ""){	    
-	    print("[$cloop][$thloop] StoreVal_Begin($status) : $curpos[$thloop] \n");
-	  }
-	}
-
-	##
-	## Thread Loop
-	##
+        ##
+        ## Thread Loop
+        ##
         for($thloop=0; $thloop<$THREADS; $thloop++){
           my @_emails;
-	  if($curpos[$thloop] =~ m/\@/){
-	    $status = 0;
-	    @_emails = split(/,/, $curpos[$thloop]);
-	    print("[$cloop] Split [$thloop] $curpos[$thloop]\n");
-	    $curpos[$thloop] = "";
-	  }else{
-	    ($status, @_emails) =  &_readdata();
-	  }
-	  ##
-	  ## Obtaining Own IP
-	  ##
-	  $ownip = int(rand($TOTALIP));
+          if($curpos[$thloop] =~ m/\@/){
+           $status = 0;
+           @_emails = split(/,/, $curpos[$thloop]);
+           print("[$cloop] Split [$thloop] $curpos[$thloop]\n");
+           $curpos[$thloop] = "";
+          }else{
+           ($status, @_emails) =  &_readdata();
+          }
+          ##
+          ## Obtaining Own IP
+          ##
+          $ownip = int(rand($TOTALIP));
 
-	  ##
-	  ## When it is "Specified Mode" we do not use same ip in threads
-	  ##
-	  if($_OPFLAG eq 0){
-	    my $iploop=0;
-	    while( $_ipused{$ownip} eq  1 || $_ippause{$_TDOMAIN."_".$iplist[$ownip]} ne ""){
-	      $ownip = int(rand($TOTALIP));
-	      $iploop++;
-	      if($iploop>300){
-		sleep(3);
-		print("[$cloop] Checking IP Availabilities / $per{swait}\n");
-		#
-		# Will Check IP_Pause Status
-		&_check_ippause();
-		$iploop=0;
-	      }
-	    }
-	    $_ipused{$ownip} = 1;
-	  }else{
-	    my $iploop=0;
-	    while( $_ippause{$ownip} ne ""){
-	      $ownip = int(rand($TOTALIP));
-	      $iploop++;
-	      if($iploop>200){
-		sleep(3);
-		print("[$cloop] Checking IP Availabilities / $per{swait}\n");
-		#
-		# Will Check IP_Pause Status
-		&_check_ippause();
-		$iploop=0;
-	      }
-	    }
-	  }
+          ##
+          ## When it is "Specified Mode" we do not use same ip in threads
+          ##
+          if($_OPFLAG eq 0){
+           my $iploop=0;
+           while( $_ipused{$ownip} eq  1 || $_ippause{$_TDOMAIN."_".$iplist[$ownip]} ne ""){
+            $ownip = int(rand($TOTALIP));
+            $iploop++;
+            if($iploop>200){
+             sleep(3);
+             print("[$cloop] Checking IP Availabilities / $per{swait}\n");
+             #
+             # Will Check IP_Pause Status
+             &_check_ippause();
+             $iploop=0;
+            }
+           }
+           $_ipused{$ownip} = 1;
+          }else{
+           my $iploop=0;
+           while( $_ippause{$ownip} ne ""){
+            $ownip = int(rand($TOTALIP));
+            $iploop++;
+            if($iploop>200){
+             sleep(3);
+             print("[$cloop] Checking IP Availabilities / $per{swait}\n");
+             #
+             # Will Check IP_Pause Status
+             &_check_ippause();
+             $iploop=0;
+            }
+           }
+          }
           ($thr[$thloop]) = threads->new(\&_thread_parent, $cloop, $thloop, $curserver, $ownip, @_emails);
-#	  $thr[$thloop] -> detach();
+          #$thr[$thloop] -> detach();
           print("[$cloop][$thloop] $$ Status : $status\n");
-	  #
-	  # When File END is reached
-	  if($status eq 1 || $_dolined{$cloop} >= $_doline{$cloop} ){
-            next;
-#  	    $thloop++;
-#	    last;
-	  }
+          #
+          # When File END is reached
+          if($status eq 1 || $_dolined{$cloop} >= $_doline{$cloop} ){
+           next;
+           #$thloop++;
+           #last;
+          }
         }
-	for($thjloop=0; $thjloop<$thloop; $thjloop++){
-	  # When Error Occured while Verify Process, need to start from where it stopped
-#          print("Waiting [$thjloop] $$ \n");
-#          ($curpos[$thjloop], $_remails) = $thr[$thjloop] -> join();
-          $curpos[$thjloop] = $thr[$thjloop] -> join();
-	  if(length($curpos[$thjloop]) > 3){
-	    print("[$cloop][$thjloop] Curpos : $curpos[$thjloop] \n");
-	    $status = 0;
-	  }
-	}
 
-	## TEST
-#	for(my $thloop=0; $thloop<$THREADS; $thloop++){
-#          if($curpos[$thloop] ne ""){	    
-#	    print("[$cloop][$thloop] StoreVal($status) : $curpos[$thloop] \n");
-#	    $status = 0;
-#	  }
-#	}
+        for($thjloop=0; $thjloop<$thloop; $thjloop++){
+         # When Error Occured while Verify Process, need to start from where it stopped
+         # print("Waiting [$thjloop] $$ \n");
+         # ($curpos[$thjloop], $_remails) = $thr[$thjloop] -> join();
+         $curpos[$thjloop] = $thr[$thjloop] -> join();
+         if(length($curpos[$thjloop]) > 3){
+          print("[$cloop][$thjloop] Curpos : $curpos[$thjloop] \n");
+          $status = 0;
+         }
+        }
 
-#	&_statusoutput();
-	##
-	## Thread Loop;End
-	##
-	if($per{twait}>0){
+        ## TEST
+        #	for(my $thloop=0; $thloop<$THREADS; $thloop++){
+        #          if($curpos[$thloop] ne ""){	    
+        #	    print("[$cloop][$thloop] StoreVal($status) : $curpos[$thloop] \n");
+        #	    $status = 0;
+        #	  }
+        #	}
+
+        #	&_statusoutput();
+        ##
+        ## Thread Loop;End
+        ##
+        if($per{twait}>0){
           print("- Waiting for Thread WAIT $per{twait}\n");
-	  usleep($per{twait});
+          usleep($per{twait});
           print("- Waiting for Thread WAIT;End\n");	    
-	}
+        }
       }
-#      print("---- File END Exitted ?\n");
+      #      print("---- File END Exitted ?\n");
       close(FIN);
       ##
       ## Unlink Divided File after 1 second
@@ -360,8 +370,7 @@ while(scalar(@pids)){
   my $child = shift(@pids);
   if (waitpid($child, WNOHANG)) {
       print "Finished: $child\n";
-  }
-  else {
+  }else {
       push(@pids, $child);
   }
 }
@@ -419,6 +428,13 @@ if($pprocid > 0){
     unlink($filepath.$_tmpfilename);
   }
 }
+
+
+######
+print("$start_time\n");
+$endt_time = time();
+print("$endt_time\n");
+######
 
 exit;
 
@@ -779,7 +795,6 @@ sub openMail()
   $| = 1;
   select(STDOUT);
   $res = <$SCK>;
-#  print($res);
 
   unless($res =~ /^220/){
     close($SCK);
@@ -897,7 +912,7 @@ sub verifyMail()
   $year += 1900;
   $mon += 1;
   $curdate = sprintf("%04d%02d%02d", $year, $mon, $mday );
-  $curdatestart = sprintf("%04d%02d%02d-$02d%02d", $year, $mon, $mday,$hour,$min );
+$curdatestart = sprintf("%04d%02d%02d-%02d%02d", $year, $mon, $mday, $hour, $min);
 
   if($_skip ne 1){
 #    open(FP, ">>".$_files{$results}."$_pnum.txt");
@@ -1049,12 +1064,3 @@ sub _print()
  }
  return;
 }
-
-##----------------------------------------
-## Added 2024/4/19
-sub _sigpipe
-{
-  print("Progress : SIGPIPE\n");
-}
-##----------------------------------------
-
